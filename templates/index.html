@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageGame Wizard Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <style>
+        /* Status Indicators (Using specific names so they don't break Tailwind) */
+        .status { 
+            margin-top: 15px; 
+            font-weight: bold; 
+            padding: 10px; 
+            border-radius: 6px; 
+            display: none; 
+            font-size: 13px;
+        }
+        .status-success { 
+            background: rgba(21, 87, 36, 0.2); 
+            color: #4ade80; 
+            border: 1px solid rgba(74, 222, 128, 0.4);
+        }
+        .status-error { 
+            background: rgba(114, 28, 36, 0.2); 
+            color: #f87171; 
+            border: 1px solid rgba(248, 113, 113, 0.4);
+        }
+    
+        /* Loading & Spinner Animations */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1.5s linear infinite;
+        }
+        
+        /* Spin effect for the canvas during core loading */
+        .spinning-canvas {
+            animation: slow-spin 4s linear infinite;
+            filter: blur(4px) grayscale(50%);
+            opacity: 0.4;
+        }
+        
+        /* Keyframes */
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        @keyframes slow-spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col justify-between">
+
+    <header class="max-w-4xl w-full mx-auto px-4 pt-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 gap-4">
+        <div>
+            <h1 class="text-2xl font-extrabold tracking-tight text-white">ImageGame Wizard</h1>
+            <p class="text-slate-400 text-xs mt-0.5">Interactive Verification Flow Pipeline</p>
+            <div class="bg-slate-800 px-3 py-1 rounded-md border border-slate-700 text-xs inline-block mt-3">
+                <span class="text-slate-500 font-mono">Session ID: </span>
+                <span id="session-display" class="font-bold text-blue-400 font-mono">Initializing...</span>
+            </div>
+        </div>
+
+        <div class="max-w-xs w-full bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 shadow-lg backdrop-blur-sm self-stretch md:self-auto">
+            <h2 class="text-sm font-bold text-white tracking-wide uppercase text-slate-300">Verify Server Identity</h2>
+            <p class="text-slate-400 text-xs mt-1 mb-3 leading-relaxed">Issue a cryptographic challenge to this local instance.</p>
+            <button id="verifyBtn" onclick="verifyServer()" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-xs py-2 px-3 rounded-lg transition-colors cursor-pointer shadow-md">
+                Verify Server
+            </button>
+            <div id="statusBox" class="status"></div>
+        </div>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center p-4">
+        <div class="max-w-xl w-full bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden transition-all duration-300">
+            
+            <div id="deck-stage1" class="p-6 space-y-5">
+                <div class="text-center pb-2">
+                    <h2 class="text-xl font-bold text-white">Load System Target</h2>
+                    <p class="text-slate-400 text-xs mt-1">Upload an image file or pass a live source URL parameter string to begin processing</p>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Upload Local Disk File</label>
+                    <input type="file" id="file-input" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-900 file:text-blue-200 hover:file:bg-blue-800 cursor-pointer"/>
+                </div>
+                
+                <div class="relative flex py-1 items-center">
+                    <div class="flex-grow border-t border-slate-700"></div>
+                    <span class="flex-shrink mx-3 text-slate-500 text-[10px] uppercase font-mono tracking-widest">OR</span>
+                    <div class="flex-grow border-t border-slate-700"></div>
+                </div>
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Image Resource URL</label>
+                    <input type="text" id="url-input" placeholder="https://example.com/source.jpg" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"/>
+                </div>
+                
+                <button id="process-btn" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-medium text-sm py-2.5 px-4 rounded-lg transition-colors cursor-pointer shadow-md">
+                    Initiate Core Preparation
+                </button>
+            </div>
+
+            <div id="deck-workspace" class="hidden relative p-4 flex flex-col items-center justify-center">
+                
+                <div class="relative border-4 border-slate-900 rounded-xl overflow-hidden bg-slate-950 flex justify-center items-center group">
+                    
+                    <canvas id="display-canvas" class="block max-w-full h-auto max-h-[60vh] object-contain transition-all duration-300"></canvas>
+
+                    <div id="loading-overlay" class="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center z-20">
+                        <div class="spinner mb-4"></div>
+                        <p class="text-sm font-semibold text-white">Synchronizing System Pipeline...</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">Calculating matrix array fields...</p>
+                    </div>
+
+                    <div id="step3-overlay" class="hidden absolute inset-0 bg-slate-950/80 flex flex-col items-center justify-center z-30 p-6 animate-fade-in">
+                        <button id="step3-close" class="absolute top-3 right-3 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer">✕</button>
+                        
+                        <div class="w-full max-w-xs text-center space-y-3">
+                            <div class="bg-blue-600/20 text-blue-400 text-xs font-semibold px-2.5 py-1 rounded-full inline-block border border-blue-500/30">Step 3 Authentication</div>
+                            <h3 class="text-base font-bold text-white">Identity Verification</h3>
+                            <p class="text-slate-400 text-xs">Type your target pass token string into the input module below and press <kbd class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">Enter</kbd> to execute verification mapping.</p>
+                            <input type="password" id="pass-input" placeholder="Enter security key..." class="w-full bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl px-4 py-2.5 text-center text-sm text-white focus:outline-none font-mono tracking-widest transition-all"/>
+                        </div>
+                    </div>
+
+                    <div id="step4-timer-overlay" class="hidden opacity-0 absolute inset-0 bg-slate-950/85 flex flex-col items-center justify-center z-30 p-6 transition-opacity duration-300">
+                        <button id="step4-close" class="absolute top-3 right-3 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 p-1.5 rounded-full text-xs font-bold transition-all cursor-pointer">✕</button>
+                        
+                        <div class="w-full max-w-xs text-center space-y-4">
+                            <div class="bg-amber-600/20 text-amber-400 text-xs font-semibold px-2.5 py-1 rounded-full inline-block border border-amber-500/30">Activity Timeout Detected</div>
+                            <h3 class="text-base font-bold text-white">Commit Segment Mutations?</h3>
+                            <p class="text-slate-400 text-xs">No workspace activity detected for 2 seconds. Commit your sequential highlights directly into pipeline memory or revert alterations.</p>
+                            
+                            <div class="grid grid-cols-2 gap-3 pt-2">
+                                <button id="submit-sequence-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs py-2 px-3 rounded-lg transition-colors cursor-pointer shadow-md">Submit Workspace</button>
+                                <button id="reset-sequence-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium text-xs py-2 px-3 rounded-lg transition-colors cursor-pointer border border-slate-600">Reset Changes</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div id="step5-container" class="hidden w-full pt-4 animate-fade-in">
+                    <button id="money-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-3 px-4 rounded-xl tracking-wider uppercase transition-all cursor-pointer shadow-lg hover:shadow-amber-600/20">
+                        Show me the money!
+                    </button>
+                    
+                    <div class="mt-3 hidden" id="money-container">
+                        <label class="block text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">System Production Output</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="money-output" readonly class="flex-grow bg-slate-900 border border-amber-600/40 rounded-lg px-3 py-1.5 text-xs text-amber-200 font-mono focus:outline-none"/>
+                            <button id="copy-btn" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 rounded-lg border border-slate-600 transition-colors cursor-pointer">Copy</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="text-center py-4 text-slate-500 text-[11px] border-t border-slate-800 max-w-4xl w-full mx-auto">
+        ImageGame Automated Session Registry • Production Target Engine v2026
+    </footer>
+
+    <script>
+        let S = null; 
+        let maskData = null; 
+        let originalImage = new Image();
+        
+        // Highlight & Selection Memory States
+        let committedHighlights = new Set(); 
+        let activeHighlights = new Set();    
+        let clickSequence = [];              
+
+        // Drag Interaction Elements
+        let isDragging = false;
+        let lastVisitedSegmentId = null;
+
+        // Inactivity Timer Control Vectors
+        let toggleInactivityTimer = null;
+
+        const canvas = document.getElementById('display-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Session Setup Handshake Routine
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/session', { method: 'POST' });
+                const data = await response.json();
+                S = data.session_id;
+                document.getElementById('session-display').textContent = S.substring(0, 12) + "...";
+            } catch (err) {
+                console.error("Session configuration exception:", err);
+                document.getElementById('session-display').textContent = "Initialization Failed";
+            }
+        });
+
+        // Stage 1 -> Stage 2: Submission Trigger Ingestion
+        document.getElementById('process-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('file-input');
+            const urlInput = document.getElementById('url-input');
+            let finalUrl = urlInput.value.trim();
+
+            // Transition UI State Viewport (Specification 1 & 2)
+            document.getElementById('deck-stage1').classList.add('hidden');
+            document.getElementById('deck-workspace').classList.remove('hidden');
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            canvas.classList.add('spinning-canvas');
+
+            try {
+                if (fileInput.files.length > 0) {
+                    const formData = new FormData();
+                    formData.append('session_id', S);
+                    formData.append('file', fileInput.files[0]);
+
+                    const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.error) throw new Error(uploadData.error);
+                    finalUrl = uploadData.local_url;
+                }
+
+                if (!finalUrl) {
+                    alert("ValidationError: Provide a valid file resource target or system path string parameter.");
+                    resetToStage1();
+                    return;
+                }
+
+                const processRes = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: S, url: finalUrl })
+                });
+                const processData = await processRes.json();
+                if (processData.error) throw new Error(processData.error);
+
+                executePollingLoop();
+
+            } catch (err) {
+                alert("Runtime Processing Fault: " + err.message);
+                resetToStage1();
+            }
+        });
+
+        function resetToStage1() {
+            document.getElementById('deck-workspace').classList.add('hidden');
+            document.getElementById('deck-stage1').classList.remove('hidden');
+            canvas.classList.remove('spinning-canvas');
+        }
+
+        function executePollingLoop() {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/poll?session_id=${S}`);
+                    const data = await res.json();
+                    
+                    if (data.ready) {
+                        clearInterval(interval);
+                        await loadAndRenderWorkspace();
+                    }
+                } catch (err) {
+                    console.error("Polling stream failure:", err);
+                    clearInterval(interval);
+                    resetToStage1();
+                }
+            }, 1000);
+        }
+
+        // Workspace Materialization & Unblinding Pipeline
+        async function loadAndRenderWorkspace() {
+            try {
+                const maskRes = await fetch(`/api/mask?session_id=${S}`);
+                const maskJson = await maskRes.json();
+                if (maskJson.error) throw new Error(maskJson.error);
+                maskData = maskJson.mask;
+
+                originalImage.src = `/api/image?session_id=${S}&timestamp=${new Date().getTime()}`;
+                originalImage.onload = () => {
+                    // Turn off loading animation constraints
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                    canvas.classList.remove('spinning-canvas');
+                    
+                    // Bind real canvas grid array sizing bounds
+                    canvas.width = originalImage.naturalWidth;
+                    canvas.height = originalImage.naturalHeight;
+                    
+                    // Flush tracking states
+                    committedHighlights.clear();
+                    activeHighlights.clear();
+                    clickSequence = [];
+
+                    drawCanvas();
+                    
+                    // Open Stage 3 Text Input Overlay Frame (Specification 3)
+                    document.getElementById('step3-overlay').classList.remove('hidden');
+                    document.getElementById('pass-input').focus();
+                };
+            } catch (err) {
+                alert("Matrix Manifest Mapping Error: " + err.message);
+                resetToStage1();
+            }
+        }
+
+        // Core Precise Overlay Canvas Painter Function
+        function drawCanvas() {
+            if (!originalImage.complete || !maskData) return;
+
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imgData.data;
+
+            for (let y = 0; y < canvas.height; y++) {
+                if (!maskData[y]) continue;
+                for (let x = 0; x < canvas.width; x++) {
+                    const idx = (y * canvas.width + x) * 4;
+                    const segmentId = maskData[y][x];
+
+                    if (segmentId === undefined) continue;
+
+                    // Apply active overlays
+                    if (activeHighlights.has(Number(segmentId))) {
+                        data[idx] = Math.min(255, data[idx] + 80);      
+                        data[idx + 1] = Math.max(0, data[idx + 1] - 40); 
+                        data[idx + 2] = Math.max(0, data[idx + 2] - 40); 
+                    }
+
+                    // Compute Segment Contrast Tracing Lines
+                    let isBoundary = false;
+                    if (x < canvas.width - 1 && maskData[y][x + 1] !== segmentId) isBoundary = true;
+                    if (y < canvas.height - 1 && maskData[y + 1] && maskData[y + 1][x] !== segmentId) isBoundary = true;
+
+                    if (isBoundary) {
+                        data[idx] = 255;     
+                        data[idx + 1] = 255;
+                        data[idx + 2] = 255;
+                    }
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        // Precise Spatial Vector Intersect Calculator
+        function getSegmentFromCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+            const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+
+            if (maskData && maskData[y] && maskData[y][x] !== undefined) {
+                return Number(maskData[y][x]);
+            }
+            return null;
+        }
+
+        // Core Toggle Mutation & Reset Handler Ingestion
+        function toggleSegment(segmentId) {
+            if (segmentId === null) return;
+            
+            if (activeHighlights.has(segmentId)) {
+                activeHighlights.delete(segmentId);
+            } else {
+                activeHighlights.add(segmentId);
+            }
+            
+            clickSequence.push(segmentId);
+            drawCanvas();
+            
+            // Fire Activity Inactivity Timers Sequence (Specification 5)
+            resetInactivityTrackingTimer();
+        }
+
+        // Specification 3: Password Overlay Submission Capture Key Handlers
+        document.getElementById('pass-input').addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                const password = e.target.value.trim();
+                if (!password) return;
+
+                try {
+                    const res = await fetch('/api/step3', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: S, password: password })
+                    });
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+
+                    if (data.sequence && Array.isArray(data.sequence)) {
+                        data.sequence.forEach(id => {
+                            const numId = Number(id);
+                            activeHighlights.add(numId);
+                            clickSequence.push(numId);
+                        });
+                        committedHighlights = new Set(activeHighlights);
+                        drawCanvas();
+                    }
+                    dismissStep3Overlay();
+                } catch (err) {
+                    alert("Identity Mapping Exception: " + err.message);
+                }
+            }
+        });
+
+        document.getElementById('step3-close').addEventListener('click', () => {
+            dismissStep3Overlay();
+        });
+
+        function dismissStep3Overlay() {
+            document.getElementById('step3-overlay').classList.add('hidden');
+            // Unblind Step 5 Command Button Area Directly (Specification 4)
+            document.getElementById('step5-container').classList.remove('hidden');
+        }
+
+        // Mouse Drag Interaction Loops Layout
+        canvas.addEventListener('mousedown', (e) => {
+            // Check if Step 3 layer is actively blocking interactions
+            if (!document.getElementById('step3-overlay').classList.contains('hidden')) return;
+            
+            const segmentId = getSegmentFromCoordinates(e);
+            if (segmentId !== null) {
+                isDragging = true;
+                lastVisitedSegmentId = segmentId;
+                toggleSegment(segmentId);
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const segmentId = getSegmentFromCoordinates(e);
+            if (segmentId !== null && segmentId !== lastVisitedSegmentId) {
+                lastVisitedSegmentId = segmentId;
+                toggleSegment(segmentId);
+            }
+        });
+
+        const TerminateCanvasDragEvent = () => {
+            isDragging = false;
+            lastVisitedSegmentId = null;
+        };
+        canvas.addEventListener('mouseup', TerminateCanvasDragEvent);
+        canvas.addEventListener('mouseleave', TerminateCanvasDragEvent);
+
+        // Specification 5: Interactive Inactivity Timer Tracking Framework
+        function resetInactivityTrackingTimer() {
+            clearTimeout(toggleInactivityTimer);
+            
+            // Guarantee layout configuration dialog remains invisible while interacting
+            hideTimerOverlay();
+
+            toggleInactivityTimer = setTimeout(() => {
+                // Trigger view layer overlay interpolation sequence
+                showTimerOverlay();
+            }, 2000);
+        }
+
+        function showTimerOverlay() {
+            const overlay = document.getElementById('step4-timer-overlay');
+            overlay.classList.remove('hidden');
+            // Trigger alpha fade interpolation frame
+            setTimeout(() => {
+                overlay.classList.remove('opacity-0');
+                overlay.classList.add('opacity-100');
+            }, 10);
+        }
+
+        function hideTimerOverlay() {
+            const overlay = document.getElementById('step4-timer-overlay');
+            overlay.classList.remove('opacity-100');
+            overlay.classList.add('opacity-0');
+            // Wait for transit transitions to complete before updating hidden state flags
+            setTimeout(() => {
+                if(overlay.classList.contains('opacity-0')) {
+                    overlay.classList.add('hidden');
+                }
+            }, 300);
+        }
+
+        document.getElementById('step4-close').addEventListener('click', () => {
+            hideTimerOverlay();
+        });
+
+        // Step 4 Interaction Commands Processors
+        document.getElementById('submit-sequence-btn').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/step4', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: S, labels: clickSequence })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                committedHighlights = new Set(activeHighlights);
+                clickSequence = []; 
+                hideTimerOverlay();
+                alert("Pipeline Workspace Synchronized successfully.");
+            } catch (err) {
+                alert("Workspace Ingestion Rejection Exception: " + err.message);
+            }
+        });
+
+        document.getElementById('reset-sequence-btn').addEventListener('click', () => {
+            activeHighlights = new Set(committedHighlights);
+            clickSequence = [];
+            drawCanvas();
+            hideTimerOverlay();
+        });
+
+        // Step 5 Result Delivery Handlers
+        document.getElementById('money-btn').addEventListener('click', async () => {
+            try {
+                const res = await fetch(`/api/step5?session_id=${S}`);
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                const outputContainer = document.getElementById('money-container');
+                const outputField = document.getElementById('money-output');
+                
+                outputField.value = data.result;
+                outputContainer.classList.remove('hidden');
+            } catch (err) {
+                alert("Data Recovery Generation Pipeline Fault: " + err.message);
+            }
+        });
+
+        document.getElementById('copy-btn').addEventListener('click', () => {
+            const outputField = document.getElementById('money-output');
+            outputField.select();
+            navigator.clipboard.writeText(outputField.value);
+            alert("Token context clipboard string written successfully.");
+        });
+        
+        // Helper: Convert string to Uint8Array
+        const strToBuf = str => new TextEncoder().encode(str);
+        
+        async function deriveKeyFromPassword(password, saltBuffer) {
+            const baseKey = await window.crypto.subtle.importKey(
+                "raw", strToBuf(password), { name: "PBKDF2" }, false, ["deriveKey"]
+            );
+            return window.crypto.subtle.deriveKey(
+                { name: "PBKDF2", salt: saltBuffer, iterations: 100000, hash: "SHA-256" },
+                baseKey,
+                { name: "AES-CBC", length: 256 },
+                false,
+                ["decrypt"]
+            );
+        }
+        
+        async function logCryptoKeyAsBase64(cryptoKey) {
+            try {
+                // 1. Export the raw key material into an ArrayBuffer
+                // Note: The key must have been created with 'extractable: true'
+                const exportedKey = await window.crypto.subtle.exportKey("raw", cryptoKey);
+                
+                // 2. Convert the ArrayBuffer to a binary string
+                const byteArray = new Uint8Array(exportedKey);
+                let binaryString = '';
+                for (let i = 0; i < byteArray.byteLength; i++) {
+                    binaryString += String.fromCharCode(byteArray[i]);
+                }
+                
+                // 3. Convert the binary string to Base64
+                const base64Key = btoa(binaryString);
+                
+                console.log("Your Base64 Key:", base64Key);
+                return base64Key;
+            } catch (error) {
+                console.error("Failed to export key. Is it extractable?", error);
+            }
+        }
+        
+        async function verifyServer() {
+            const statusBox = document.getElementById("statusBox");
+            statusBox.style.display = "none";
+        
+            const password = prompt("Enter the client-side master password to verify the server:");
+            if (!password) return;
+        
+            try {
+                // 1. Create unique random challenges to block replay attacks
+                const salt = window.crypto.getRandomValues(new Uint8Array(16));
+                //const challengeString = "Challenge-" + Math.random().toString(36).substring(2, 15);
+        
+                // Convert salt to base64 for transmission
+                const saltB64 = btoa(String.fromCharCode(...salt));
+        
+                // 2. Transmit the challenge strings to the Flask backend
+                const response = await fetch("/challenge", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ salt: saltB64 })
+                });
+        
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || "Server rejected challenge evaluation.");
+        
+                // 3. Decode the cryptographic payload returned by the server
+                const iv = Uint8Array.from(atob(data.iv), c => c.charCodeAt(0));
+                const ciphertext = Uint8Array.from(atob(data.ciphertext), c => c.charCodeAt(0));
+                const serverId = data.plaintext
+        
+                // 4. Derive the identical key locally and try to decrypt the string
+                const aesKey = await deriveKeyFromPassword(password, salt);
+                //await logCryptoKeyAsBase64(aesKey);
+                
+                const decryptedBuffer = await window.crypto.subtle.decrypt(
+                    { name: "AES-CBC", iv: iv },
+                    aesKey,
+                    ciphertext
+                );
+        
+                // Web Crypto has ALREADY removed the PKCS#7 padding automatically!
+                const decryptedArray = new Uint8Array(decryptedBuffer);
+                const decryptedText = new TextDecoder().decode(decryptedArray);
+        
+                // 5. Assert equality between local challenge and server decryption output
+                if (decryptedText === serverId) {
+                    statusBox.className = "status success";
+                    statusBox.innerText = `✅ Success: Genuine Server Verified!`;
+                } else {
+                    throw new Error("Decrypted string mismatch.");
+                }
+        
+            } catch (err) {
+                statusBox.className = "status error";
+                statusBox.innerText = `❌ Verification Failed: ${err.message}`;
+            }
+            statusBox.style.display = "block";
+        }
+     </script>
+</body>
+</html>
