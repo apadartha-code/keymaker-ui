@@ -12,7 +12,7 @@ This frontend application is designed to communicate with the core processing ba
 
 ## 🚀 Getting Started (Non-Commercial Research)
 
-The app requires a startup password currently, so you can only run this interactively for now.
+**Note**: The app requires a startup password for the UIs to validate. If it is ran non-interactively as a docker, a nonce.txt file will need to be mapped as shown below.
 
 ### Terminal:
 #### Prerequisites
@@ -37,11 +37,11 @@ chmod +x setup.sh cert.sh
 # Ignore the browser warnings for certificate verification and proceed.
 ```
 
-### Docker (interactive):
+### Docker:
 #### Prerequisites
 * Access to **docker** group for running docker commands.
 
-### Installation & Execution
+### Building the image
 ```bash
 # Clone the repository
 git clone https://github.com/apadartha-code/keymaker-ui.git
@@ -51,11 +51,20 @@ cd keymaker-ui
 
 # Build the image
 docker build -t keymaker-ui .
+```
 
+#### Running interactively (password from console)
+```bash
 # Run the image
-docker run -it -p 5000:5000 keymaker-ui
+docker run -it --rm -p 5000:5000 --name keymaker keymaker-ui
 # The interface will listen locally on port 5000 (0.0.0.0:5000) over https.
 # Ignore the browser warnings for certificate verification and proceed.
+```
+
+#### Running in detached mode (mapped nonce file)
+```bash
+echo "my verification code" > nonce.txt
+docker run -d --rm -p 5000:5000 -v $(pwd)/nonce.txt:/app/nonce.txt --name keymaker keymaker-ui
 ```
 
 ---

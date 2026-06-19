@@ -72,10 +72,34 @@ def handle_challenge():
 
 if __name__ == '__main__':
     print("=== Secure Startup Initialization ===")
-    secret_input = getpass.getpass("Enter the server verification password: ")
-    if not secret_input.strip():
-        print("Error: Password cannot be empty. Aborting startup.")
-        exit(1)
+    # Define the path to the nonce file
+    nonce_file_path = "nonce.txt"
+    secret_input = ""
+    try:
+        # Check if file exists and has content before opening to prevent unnecessary locks
+        if os.path.exists(nonce_file_path) and os.path.getsize(nonce_file_path) > 0:
+            with open(nonce_file_path, "r+") as f:
+                # Read the first line
+                line = f.readline()
+                
+                # If line is not empty, strip the trailing newline/whitespaces
+                if line:
+                    secret_input = line.rstrip('\r\n')
+                
+                # Rewind to the beginning of the file and truncate it to 0 bytes
+                f.seek(0)
+                f.truncate(0)
+    except Exception as e:
+        # Fail-safe: capture any unexpected OS errors without crashing the Flask app
+        print(f"Error handling nonce file: {e}")
+        secret_input = ""
+    
+    if len(secret_input) == 0:
+        # Interactive initialization of verification string.
+        secret_input = getpass.getpass("Enter the server verification password: ")
+        if not secret_input.strip():
+            print("Error: Password cannot be empty. Aborting startup.")
+            exit(1)
         
     app.config["STARTUP_PASSWORD"] = secret_input
     app.config["SERVER_UUID"] = uuid.uuid4().hex

@@ -29,10 +29,18 @@ COPY . /app
 RUN pip install -e .
 
 # Make the cert script executable and run it to generate self-signed certs
-RUN chmod +x cert.sh && ./cert.sh
+# Also add a blank nonce file to be mapped from the host side when running
+# in detached mode.
+RUN chmod +x cert.sh \
+    && ./cert.sh \
+    && touch nonce.txt
 
 # Expose the Flask port
 EXPOSE 5000
 
 # Run the application
-CMD ["python", "app.py"]
+# Configure the container to run python app.py by default
+ENTRYPOINT ["python", "app.py"]
+
+# Default arguments passed to app.py if the user doesn't provide any
+CMD []
