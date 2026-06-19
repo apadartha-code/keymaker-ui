@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ImageGame Workspace Blueprint</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1.5s linear infinite;
+        }
+        .spinning-canvas {
+            animation: slow-spin 4s linear infinite;
+            filter: blur(4px) grayscale(50%);
+            opacity: 0.4;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes slow-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex items-center justify-center p-4">
+
+    <div class="max-w-xl w-full bg-slate-800 rounded-2xl border border-slate-700 shadow-xl overflow-hidden">
+        
+        <div id="deck-stage1" class="p-6 space-y-5">
+            <div class="text-center pb-2">
+                <h2 class="text-xl font-bold text-white">Load System Target</h2>
+                <p class="text-slate-400 text-xs mt-1">Upload an image file or pass a live source URL parameter string to begin processing</p>
+            </div>
+            
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Upload Local Disk File</label>
+                <input type="file" id="file-input" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-900 file:text-blue-200 hover:file:bg-blue-800 cursor-pointer"/>
+            </div>
+            
+            <div class="relative flex py-1 items-center">
+                <div class="flex-grow border-t border-slate-700"></div>
+                <span class="flex-shrink mx-3 text-slate-500 text-[10px] uppercase font-mono tracking-widest">OR</span>
+                <div class="flex-grow border-t border-slate-700"></div>
+            </div>
+            
+            <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Image Resource URL</label>
+                <input type="text" id="url-input" placeholder="https://example.com/source.jpg" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 font-mono"/>
+            </div>
+            
+            <button id="process-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm py-2.5 px-4 rounded-lg transition-colors cursor-pointer shadow-md">
+                Initiate Core Preparation
+            </button>
+        </div>
+
+        <div id="deck-workspace" class="hidden relative p-4 flex flex-col items-center justify-center">
+            
+            <div class="relative border-4 border-slate-900 rounded-xl overflow-hidden bg-slate-950 flex justify-center items-center">
+                <canvas id="display-canvas" class="block max-w-full h-auto max-h-[60vh] object-contain"></canvas>
+
+                <div id="loading-overlay" class="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center z-20">
+                    <div class="spinner mb-4"></div>
+                    <p class="text-sm font-semibold text-white">Synchronizing System Pipeline...</p>
+                </div>
+
+                <div id="step3-overlay" class="hidden absolute inset-0 bg-slate-950/80 flex flex-col items-center justify-center z-30 p-6">
+                    <button id="step3-close" class="absolute top-3 right-3 text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-full text-xs font-bold cursor-pointer">✕</button>
+                    <div class="w-full max-w-xs text-center space-y-3">
+                        <div class="bg-blue-600/20 text-blue-400 text-xs font-semibold px-2.5 py-1 rounded-full inline-block border border-blue-500/30">Step 3 Authentication</div>
+                        <input type="password" id="pass-input" placeholder="Enter security key..." class="w-full bg-slate-900 border-2 border-slate-700 focus:border-blue-500 rounded-xl px-4 py-2.5 text-center text-sm text-white focus:outline-none font-mono tracking-widest"/>
+                    </div>
+                </div>
+
+                <div id="step4-timer-overlay" class="hidden opacity-0 absolute inset-0 bg-slate-950/85 flex flex-col items-center justify-center z-30 p-6 transition-opacity duration-300">
+                    <button id="step4-close" class="absolute top-3 right-3 text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-full text-xs font-bold cursor-pointer">✕</button>
+                    <div class="w-full max-w-xs text-center space-y-4">
+                        <div class="bg-amber-600/20 text-amber-400 text-xs font-semibold px-2.5 py-1 rounded-full inline-block border border-amber-500/30">Activity Timeout Detected</div>
+                        <div class="grid grid-cols-2 gap-3 pt-2">
+                            <button id="submit-sequence-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs py-2 px-3 rounded-lg cursor-pointer">Submit Workspace</button>
+                            <button id="reset-sequence-btn" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium text-xs py-2 px-3 rounded-lg cursor-pointer border border-slate-600">Reset Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step5-container" class="hidden w-full pt-4">
+                <button id="money-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-3 px-4 rounded-xl tracking-wider uppercase cursor-pointer shadow-lg">
+                    Show me the money! 💰
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let S = null, maskData = null, originalImage = new Image();
+        let committedHighlights = new Set(), activeHighlights = new Set(), clickSequence = [];
+        let isDragging = false, lastVisitedSegmentId = null, toggleInactivityTimer = null;
+
+        const canvas = document.getElementById('display-canvas');
+        const ctx = canvas.getContext('2d');
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/keymaker/api/session', { method: 'POST' });
+                const data = await response.json();
+                S = data.session_id;
+            } catch (err) { console.error("Session configuration exception:", err); }
+        });
+
+        document.getElementById('process-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('file-input');
+            const urlInput = document.getElementById('url-input');
+            let finalUrl = urlInput.value.trim();
+
+            document.getElementById('deck-stage1').classList.add('hidden');
+            document.getElementById('deck-workspace').classList.remove('hidden');
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            canvas.classList.add('spinning-canvas');
+
+            try {
+                if (fileInput.files.length > 0) {
+                    const formData = new FormData();
+                    formData.append('session_id', S);
+                    formData.append('file', fileInput.files[0]);
+
+                    const uploadRes = await fetch('/keymaker/api/upload', { method: 'POST', body: formData });
+                    const uploadData = await uploadRes.json();
+                    if (uploadData.error) throw new Error(uploadData.error);
+                    finalUrl = uploadData.local_url;
+                }
+
+                const processRes = await fetch('/keymaker/api/process', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: S, url: finalUrl })
+                });
+                executePollingLoop();
+            } catch (err) { alert(err.message); resetToStage1(); }
+        });
+
+        function resetToStage1() {
+            document.getElementById('deck-workspace').classList.add('hidden');
+            document.getElementById('deck-stage1').classList.remove('hidden');
+            canvas.classList.remove('spinning-canvas');
+        }
+
+        function executePollingLoop() {
+            const interval = setInterval(async () => {
+                const res = await fetch(`/keymaker/api/poll?session_id=${S}`);
+                const data = await res.json();
+                if (data.ready) { clearInterval(interval); loadAndRenderWorkspace(); }
+            }, 1000);
+        }
+
+        async function loadAndRenderWorkspace() {
+            const maskRes = await fetch(`/keymaker/api/mask?session_id=${S}`);
+            const maskJson = await maskRes.json();
+            maskData = maskJson.mask;
+
+            originalImage.src = `/keymaker/api/image?session_id=${S}&ts=${new Date().getTime()}`;
+            originalImage.onload = () => {
+                document.getElementById('loading-overlay').classList.add('hidden');
+                canvas.classList.remove('spinning-canvas');
+                canvas.width = originalImage.naturalWidth;
+                canvas.height = originalImage.naturalHeight;
+                drawCanvas();
+                document.getElementById('step3-overlay').classList.remove('hidden');
+                document.getElementById('pass-input').focus();
+            };
+        }
+
+        function drawCanvas() {
+            if (!originalImage.complete || !maskData) return;
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imgData.data;
+
+            for (let y = 0; y < canvas.height; y++) {
+                if (!maskData[y]) continue;
+                for (let x = 0; x < canvas.width; x++) {
+                    const idx = (y * canvas.width + x) * 4;
+                    const segmentId = maskData[y][x];
+                    if (segmentId === undefined) continue;
+
+                    if (activeHighlights.has(Number(segmentId))) {
+                        data[idx] = Math.min(255, data[idx] + 80);
+                        data[idx + 1] = Math.max(0, data[idx + 1] - 40);
+                        data[idx + 2] = Math.max(0, data[idx + 2] - 40);
+                    }
+                    let isBoundary = false;
+                    if (x < canvas.width - 1 && maskData[y][x + 1] !== segmentId) isBoundary = true;
+                    if (y < canvas.height - 1 && maskData[y + 1] && maskData[y + 1][x] !== segmentId) isBoundary = true;
+                    if (isBoundary) { data[idx] = 255; data[idx + 1] = 255; data[idx + 2] = 255; }
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        function getSegmentFromCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+            const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
+            return (maskData && maskData[y]) ? Number(maskData[y][x]) : null;
+        }
+
+        function toggleSegment(segmentId) {
+            if (segmentId === null) return;
+            if (activeHighlights.has(segmentId)) activeHighlights.delete(segmentId);
+            else activeHighlights.add(segmentId);
+            clickSequence.push(segmentId);
+            drawCanvas();
+            resetInactivityTrackingTimer();
+        }
+
+        document.getElementById('pass-input').addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                const res = await fetch('/keymaker/api/step3', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: S, password: e.target.value.trim() })
+                });
+                const data = await res.json();
+                if (data.sequence) {
+                    data.sequence.forEach(id => { activeHighlights.add(Number(id)); clickSequence.push(Number(id)); });
+                    committedHighlights = new Set(activeHighlights);
+                    drawCanvas();
+                }
+                dismissStep3Overlay();
+            }
+        });
+
+        document.getElementById('step3-close').addEventListener('click', dismissStep3Overlay);
+        function dismissStep3Overlay() {
+            document.getElementById('step3-overlay').classList.add('hidden');
+            document.getElementById('step5-container').classList.remove('hidden');
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (!document.getElementById('step3-overlay').classList.contains('hidden')) return;
+            const segmentId = getSegmentFromCoordinates(e);
+            if (segmentId !== null) { isDragging = true; lastVisitedSegmentId = segmentId; toggleSegment(segmentId); }
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const segmentId = getSegmentFromCoordinates(e);
+            if (segmentId !== null && segmentId !== lastVisitedSegmentId) { lastVisitedSegmentId = segmentId; toggleSegment(segmentId); }
+        });
+        const stopDrag = () => { isDragging = false; lastVisitedSegmentId = null; };
+        canvas.addEventListener('mouseup', stopDrag);
+        canvas.addEventListener('mouseleave', stopDrag);
+
+        function resetInactivityTrackingTimer() {
+            clearTimeout(toggleInactivityTimer);
+            hideTimerOverlay();
+            toggleInactivityTimer = setTimeout(showTimerOverlay, 2000);
+        }
+        function showTimerOverlay() {
+            const o = document.getElementById('step4-timer-overlay'); o.classList.remove('hidden');
+            setTimeout(() => { o.classList.remove('opacity-0'); o.classList.add('opacity-100'); }, 10);
+        }
+        function hideTimerOverlay() {
+            const o = document.getElementById('step4-timer-overlay'); o.classList.remove('opacity-100'); o.classList.add('opacity-0');
+            setTimeout(() => { if(o.classList.contains('opacity-0')) o.classList.add('hidden'); }, 300);
+        }
+        document.getElementById('step4-close').addEventListener('click', hideTimerOverlay);
+
+        document.getElementById('submit-sequence-btn').addEventListener('click', async () => {
+            await fetch('/keymaker/api/step4', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: S, labels: clickSequence })
+            });
+            committedHighlights = new Set(activeHighlights); clickSequence = []; hideTimerOverlay();
+        });
+        document.getElementById('reset-sequence-btn').addEventListener('click', () => { activeHighlights = new Set(committedHighlights); clickSequence = []; drawCanvas(); hideTimerOverlay(); });
+
+        /* REDIRECTION INTERSECT LOOP */
+        document.getElementById('money-btn').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/keymaker/api/step5', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: S })
+                });
+                const data = await res.json();
+                
+                // Break client layout runtime window and redirect back to platform UI
+                if (data.status === 'redirect') {
+                    window.location.href = data.redirect_url;
+                }
+            } catch (err) { alert("Pipeline Break Exception: " + err.message); }
+        });
+    </script>
+</body>
+</html>

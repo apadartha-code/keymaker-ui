@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keymaker_ui"
+version = "0.1.0"
+description = "An interactive image verification blueprint widget for Flask applications."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Framework :: Flask",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "Flask>=3.0.0",
+    "cryptography>=47.0.0"
+]
+
+[tool.setuptools.packages.find]
+# Tell setuptools to look inside the src directory
+where = ["src"]
+# Ensure only the core widget folder gets packaged
+include = ["keymaker_ui*"]
+
+[tool.setuptools.package-data]
+# Ensure Jinja templates and front-end target files are bundled inside the wheel
+# Keeps target asset routing intact relative to the package path
+keymaker_ui = ["templates/*.html", "static/**/*"]
