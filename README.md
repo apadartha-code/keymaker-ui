@@ -13,7 +13,7 @@ This frontend application is designed to communicate with the core processing ba
 ## 🚀 Getting Started (Non-Commercial Research)
 
 ### Prerequisites
-* **Python 3.10+** (Ensure this matches your backend requirements)
+* **Python 3.8+** (Ensure this matches your backend requirements)
 
 ### Installation & Execution
 ```bash
@@ -23,14 +23,15 @@ git clone https://github.com/apadartha-code/keymaker-ui.git
 # Navigate into the project folder
 cd keymaker-ui
 
-# Ensure scripts are executable
+# (Optional) Ensure scripts are executable
 chmod +x setup.sh cert.sh
 
 # Set up the virtual environment and the certificates
-./setup.sh && ./cert.sh
+./setup.sh
 
 # Follow the on-screen instructions to activate the app.
-# The interface will listen locally on port 5001 (0.0.0.0:5001)
+# The interface will listen locally on port 5000 (0.0.0.0:5000) over https.
+# Ignore the browser warnings for certificate verification and proceed.
 ```
 
 ---
