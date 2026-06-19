@@ -12,10 +12,13 @@ This frontend application is designed to communicate with the core processing ba
 
 ## 🚀 Getting Started (Non-Commercial Research)
 
-### Prerequisites
+The app requires a startup password currently, so you can only run this interactively for now.
+
+### Terminal:
+#### Prerequisites
 * **Python 3.8+** (Ensure this matches your backend requirements)
 
-### Installation & Execution
+#### Installation & Execution
 ```bash
 # Clone the repository
 git clone https://github.com/apadartha-code/keymaker-ui.git
@@ -30,6 +33,27 @@ chmod +x setup.sh cert.sh
 ./setup.sh
 
 # Follow the on-screen instructions to activate the app.
+# The interface will listen locally on port 5000 (0.0.0.0:5000) over https.
+# Ignore the browser warnings for certificate verification and proceed.
+```
+
+### Docker (interactive):
+#### Prerequisites
+* Access to **docker** group for running docker commands.
+
+### Installation & Execution
+```bash
+# Clone the repository
+git clone https://github.com/apadartha-code/keymaker-ui.git
+
+# Navigate into the project folder
+cd keymaker-ui
+
+# Build the image
+docker build -t keymaker-ui .
+
+# Run the image
+docker run -it -p 5000:5000 keymaker-ui
 # The interface will listen locally on port 5000 (0.0.0.0:5000) over https.
 # Ignore the browser warnings for certificate verification and proceed.
 ```
