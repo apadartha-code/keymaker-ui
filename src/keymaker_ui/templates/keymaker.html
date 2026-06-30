@@ -91,6 +91,26 @@
             </div>
         </div>
     </div>
+    
+    <!-- 1. YOUR NEW ES6 MODULE SCRIPT (Handles the setup and postMessage) -->
+    <script type="module">
+      window.addEventListener('message', async (event) => {
+        const { type, scriptPath, cryptoKey, rules } = event.data;
+    
+        if (type === 'SETUP_TRANSCODER') {
+          try {
+            const module = await import(scriptPath);
+            const TranscoderClass = module.default;
+    
+            // CRITICAL BRIDGE: Attach it directly to window.
+            // This makes it visible to the classic script below.
+            window.transcoderInstance = new TranscoderClass(cryptoKey, rules);
+          } catch (err) {
+            console.error("Failed to initialize transcoder:", err);
+          }
+        }
+      });
+    </script>
 
     <script>
         let S = null, maskData = null, originalImage = new Image();
@@ -107,6 +127,38 @@
                 S = data.session_id;
             } catch (err) { console.error("Session configuration exception:", err); }
         });
+
+        async function encodeStringParam(param) {
+            if (!window.transcoderInstance) {
+                alert("Transcoder is still loading...");
+                return;
+            }
+
+            try {
+                // 1. Await the transcoder function just like a fetch call!
+                const result = await window.transcoderInstance.encode_str(param);
+                return result
+            } catch (error) {
+                console.error("String encoding operations failed:", error);
+            }
+            return ""
+        }
+
+        async function encodeObjectParam(param) {
+            if (!window.transcoderInstance) {
+                alert("Transcoder is still loading...");
+                return;
+            }
+
+            try {
+                // 1. Await the transcoder function just like a fetch call!
+                const result = await window.transcoderInstance.encode_obj(param);
+                return result
+            } catch (error) {
+                console.error("Transcoding operations failed:", error);
+            }
+            return null
+        }
 
         document.getElementById('process-btn').addEventListener('click', async () => {
             const fileInput = document.getElementById('file-input');
@@ -130,10 +182,11 @@
                     finalUrl = uploadData.local_url;
                 }
 
+                const encodedUrl = await encodeStringParam(finalUrl)
                 const processRes = await fetch('/keymaker/api/process', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: S, url: finalUrl })
+                    body: JSON.stringify({ session_id: S, url: encodedUrl })
                 });
                 executePollingLoop();
             } catch (err) { alert(err.message); resetToStage1(); }
@@ -215,16 +268,22 @@
 
         document.getElementById('pass-input').addEventListener('keydown', async (e) => {
             if (e.key === 'Enter') {
-                const res = await fetch('/keymaker/api/step3', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ session_id: S, password: e.target.value.trim() })
-                });
-                const data = await res.json();
-                if (data.sequence) {
-                    data.sequence.forEach(id => { activeHighlights.add(Number(id)); clickSequence.push(Number(id)); });
-                    committedHighlights = new Set(activeHighlights);
-                    drawCanvas();
+                passstr = await encodeStringParam(e.target.value.trim())
+                
+                try {
+                    const res = await fetch('/keymaker/api/step3', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: S, password: passstr })
+                    });
+                    const data = await res.json();
+                    if (data.sequence) {
+                        data.sequence.forEach(id => { activeHighlights.add(Number(id)); });
+                        committedHighlights = new Set(activeHighlights);
+                        drawCanvas();
+                    }
+                } catch (error) {
+                    console.error("Step 3 customization failed:", error);
                 }
                 dismissStep3Overlay();
             }
@@ -266,10 +325,11 @@
         document.getElementById('step4-close').addEventListener('click', hideTimerOverlay);
 
         document.getElementById('submit-sequence-btn').addEventListener('click', async () => {
+            encodedClicks = await encodeObjectParam(clickSequence)
             await fetch('/keymaker/api/step4', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: S, labels: clickSequence })
+                body: JSON.stringify({ session_id: S, labels: encodedClicks })
             });
             committedHighlights = new Set(activeHighlights); clickSequence = []; hideTimerOverlay();
         });

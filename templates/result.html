@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-transparent">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-transparent text-slate-100 antialiased p-2 flex justify-center items-center h-screen">
+
+    <div id="result-container" class="hidden max-w-xl w-full bg-slate-800 p-6 rounded-2xl border-2 border-amber-500/40 shadow-xl space-y-3">
+        <div>
+            <span class="bg-amber-600/20 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-500/30 uppercase tracking-widest">Server Verified Result</span>
+            <h3 class="text-lg font-bold text-white mt-2">Production Output Transferred</h3>
+        </div>
+        
+        <div class="flex gap-2">
+            <input type="text" id="final-output" value="" readonly class="flex-grow bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-mono focus:outline-none select-all"/>
+            <button id="copy-btn" onclick="copyResultToken()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-4 rounded-lg border border-slate-600 transition-colors cursor-pointer font-medium whitespace-nowrap">
+                Copy Value
+            </button>
+        </div>
+    </div>
+
+    <!-- 1. YOUR NEW ES6 MODULE SCRIPT (Handles the setup and postMessage) -->
+    <script type="module">
+      window.addEventListener('message', async (event) => {
+        const { type, scriptPath, cryptoKey, rules } = event.data;
+
+        if (type === 'SETUP_TRANSCODER') {
+          try {
+            const module = await import(scriptPath);
+            const TranscoderClass = module.default;
+
+            // CRITICAL BRIDGE: Attach it directly to window.
+            // This makes it visible to the classic script below.
+            window.transcoderInstance = new TranscoderClass(cryptoKey, rules);
+
+            // Notify the classic script that the transcoder is officially initialized
+            window.dispatchEvent(new CustomEvent('transcoder-ready'));
+          } catch (err) {
+            console.error("Failed to initialize transcoder:", err);
+          }
+        }
+      });
+    </script>
+
+    <script>
+
+        async function decodeStringParam(param) {
+            if (!window.transcoderInstance) {
+                alert("Transcoder is still loading...");
+                return "";
+            }
+
+            try {
+                const result = await window.transcoderInstance.decode_str(param);
+                return result
+            } catch (error) {
+                console.error("String decoding operations failed:", error);
+            }
+            return ""
+        }
+
+       // Wait for the custom event fired by the ES6 module script
+       window.addEventListener('transcoder-ready', async () => {
+            try {
+                const response = await fetch('/api/encoding');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // If an encoding is returned, inject it and reveal the card
+                if (data.encoding) {
+                    // Safe from race conditions: transcoderInstance is guaranteed to exist here
+                    const decodedEncoding = await decodeStringParam(data.encoding);
+
+                    const container = document.getElementById('result-container');
+                    const outputField = document.getElementById('final-output');
+
+                    outputField.value = decodedEncoding;
+                    container.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error("Failed to fetch verified backend encoding:", error);
+            }
+        });
+
+        function copyResultToken() {
+            const outputField = document.getElementById('final-output');
+            if (outputField) {
+                navigator.clipboard.writeText(outputField.value);
+                alert("Verified encoding matrix token copied straight to workspace clipboard memory.");
+            }
+        }
+    </script>
+</body>
+</html>

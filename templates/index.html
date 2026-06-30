@@ -22,6 +22,12 @@
         <div class="max-w-xs w-full bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 shadow-lg backdrop-blur-sm">
             <h2 class="text-sm font-bold text-white tracking-wide uppercase">Verify Server Identity</h2>
             <p class="text-slate-400 text-xs mt-1 mb-3">Issue a cryptographic challenge to this local instance.</p>
+
+            <div style="margin-bottom: 0.75rem;">
+                <label for="server-verify-password" style="display: block; color: #cbd5e1; font-size: 0.75rem; margin-bottom: 0.25rem; font-weight: normal;">Master Password</label>
+                <input type="password" id="server-verify-password" placeholder="Enter client-side password" style="width: 100%; padding: 0.4rem 0.6rem; font-size: 0.8rem; background-color: #0f172a; border: 1px solid #475569; color: #ffffff; border-radius: 6px; box-sizing: border-box;">
+            </div>
+
             <button id="verifyBtn" onclick="verifyServer()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs py-2 px-3 rounded-lg cursor-pointer transition-colors">
                 Verify Server
             </button>
@@ -29,30 +35,18 @@
         </div>
     </header>
 
-    <main class="flex-grow flex flex-col items-center justify-center p-4 gap-6">
+    <main class="flex-grow flex flex-col items-center justify-center p-4 gap-6 w-full max-w-4xl mx-auto">
         
-        <div class="text-center space-y-4">
+        <div class="text-center space-y-4 w-full flex flex-col items-center">
             <p class="text-slate-400 text-sm max-w-sm">To calculate system image vector tokens, pipeline your layout matrix straight inside the Keymaker module workspace loop.</p>
-            <a href="/keymaker/ui?callback={{ url_for('main_application_dashboard') }}" class="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm py-3 px-6 rounded-xl shadow-lg transition-transform active:scale-95">
-                Launch Keymaker Workspace Pipeline 🚀
-            </a>
-        </div>
-
-        {% if encoding %}
-        <div class="max-w-xl w-full bg-slate-800 p-6 rounded-2xl border-2 border-amber-500/40 shadow-xl animate-fade-in space-y-3">
-            <div>
-                <span class="bg-amber-600/20 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full border border-amber-500/30 uppercase tracking-widest">Server Verified Result</span>
-                <h3 class="text-lg font-bold text-white mt-2">Production Output Transferred</h3>
-            </div>
             
-            <div class="flex gap-2">
-                <input type="text" id="final-output" value="{{ encoding }}" readonly class="flex-grow bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-amber-300 font-mono focus:outline-none select-all"/>
-                <button id="copy-btn" onclick="copyResultToken()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-4 rounded-lg border border-slate-600 transition-colors cursor-pointer font-medium">
-                    Copy Value
-                </button>
-            </div>
+            <button onclick="launchKeymaker(this)" class="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm py-3 px-6 rounded-xl shadow-lg transition-transform active:scale-95 cursor-pointer">
+                Launch Keymaker Workflow →
+            </button>
+            
+            <iframe id="keymaker-frame" src="" style="display: none;" class="w-full h-[400px] border border-slate-700/80 bg-slate-950/40 rounded-xl mt-4 shadow-inner backdrop-blur-sm"></iframe>
         </div>
-        {% endif %}
+        
     </main>
 
     <footer class="text-center py-4 text-slate-500 text-[11px] border-t border-slate-800 max-w-4xl w-full mx-auto">
@@ -60,10 +54,33 @@
     </footer>
 
     <script>
-        function copyResultToken() {
-            const outputField = document.getElementById('final-output');
-            navigator.clipboard.writeText(outputField.value);
-            alert("Verified encoding matrix token copied straight to workspace clipboard memory.");
+        async function launchKeymaker(button) {
+            const iframe = document.getElementById('keymaker-frame');
+        
+            // 1. Prepare your WebCrypto Key and customization rules first
+            // const cryptoKey = await window.crypto.subtle.generateKey(
+            //   { name: "AES-GCM", length: 256 }, 
+            //   false, // 🔒 Safe: The key cannot be extracted into raw bytes, but CAN still be sent to the iframe
+            //   ["encrypt", "decrypt"]
+            // );
+            const customRules = { version: "v2" };
+            const scriptPath = "/static/js/transcoder.js";
+        
+            // 2. CRITICAL: Attach the 'load' listener BEFORE changing the src
+            iframe.addEventListener('load', () => {
+              iframe.contentWindow.postMessage({
+                type: 'SETUP_TRANSCODER',
+                scriptPath: scriptPath,
+                // cryptoKey: cryptoKey,
+                cryptoKey: window.appSecureKey,
+                rules: customRules
+              }, '*');
+            });
+        
+            // 3. Trigger the page load and display configurations
+            iframe.src = "/keymaker/ui?callback=/result";
+            iframe.style.display = "block";
+            button.style.display = "none";
         }
 
         /* CLIENT SIDE CRYPTOGRAPHIC SIGNATURE ALGORITHMS */
@@ -82,11 +99,29 @@
             );
         }
 
+        async function setSessionSecret(secretKeyBytes) {
+            // Convert the raw key into an un-readable browser object
+            window.crypto.subtle.importKey(
+                "raw",
+                secretKeyBytes,
+                "AES-GCM",
+                false, // <--- CRITICAL: extractable = false
+                ["encrypt", "decrypt"]
+            ).then((secureKeyObject) => {
+                window.appSecureKey = secureKeyObject;
+            });
+        }
+
         async function verifyServer() {
             const statusBox = document.getElementById("statusBox");
             statusBox.style.display = "none";
-            const password = prompt("Enter the client-side master password to verify the server:");
-            if (!password) return;
+            const password = document.getElementById("server-verify-password").value;
+            if (!password) {
+                statusBox.className = "status status-error";
+                statusBox.innerText = `❌ Password cannot be empty.`;
+                statusBox.style.display = "block";
+                return;
+            }
         
             try {
                 const salt = window.crypto.getRandomValues(new Uint8Array(16));
@@ -103,6 +138,8 @@
                 const iv = Uint8Array.from(atob(data.iv), c => c.charCodeAt(0));
                 const ciphertext = Uint8Array.from(atob(data.ciphertext), c => c.charCodeAt(0));
                 const serverId = data.plaintext;
+                const iv2 = Uint8Array.from(atob(data.iv2), c => c.charCodeAt(0));
+                const ciphertext2 = Uint8Array.from(atob(data.ciphertext2), c => c.charCodeAt(0));
         
                 const aesKey = await deriveKeyFromPassword(password, salt);
                 const decryptedBuffer = await window.crypto.subtle.decrypt(
@@ -113,6 +150,11 @@
                 if (decryptedText === serverId) {
                     statusBox.className = "status status-success";
                     statusBox.innerText = `✅ Success: Genuine Server Verified!`;
+                    //Decrypt the session secret and set it up for use.
+                    sessionSecret = await window.crypto.subtle.decrypt(
+                        { name: "AES-CBC", iv: iv2 }, aesKey, ciphertext2
+                    );
+                    await setSessionSecret(sessionSecret);
                 } else { throw new Error("Decrypted string mismatch."); }
             } catch (err) {
                 statusBox.className = "status status-error";
