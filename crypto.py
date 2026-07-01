@@ -68,6 +68,42 @@ def read_password_via_syscall(prompt: str = "Enter Secret: ") -> bytearray:
     return password_buffer
 
 
+def read_secret_from_fifo(fifo_path: str, prompt: str = "Waiting for FIFO input... ") -> bytearray:
+    """
+    Opens a named pipe (FIFO) and reads input directly into a mutable bytearray
+    using low-level OS read system calls, bypassing Python/libc IO buffers.
+    """
+    sys.stderr.write(prompt)
+    sys.stderr.flush()
+
+    fd = None
+    secret_buffer = bytearray()
+
+    try:
+        # This os.open call will BLOCK until a writer opens the other end of the FIFO
+        fd = os.open(fifo_path, os.O_RDONLY)
+
+        while True:
+            # Execute a direct read(2) system call fetching exactly 1 byte
+            char_byte = os.read(fd, 1)
+
+            # Break on EOF (writer closed pipe) or newline characters
+            if not char_byte or char_byte == b'\n' or char_byte == b'\r':
+                break
+
+            secret_buffer.extend(char_byte)
+
+    finally:
+        # Always guarantee the file descriptor is released
+        if fd is not None:
+            os.close(fd)
+
+        sys.stderr.write('\n')
+        sys.stderr.flush()
+
+    return secret_buffer
+
+
 class SecureKeyScope:
     def __init__(self, password: bytearray, salt: bytes, iterations: int = 100_000):
         if not isinstance(password, bytearray):

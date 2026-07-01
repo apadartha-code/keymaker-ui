@@ -1,11 +1,13 @@
 import os
 import sys
+import argparse
+from pathlib import Path
 import uuid
 import base64
 import random
 from flask import Flask, request, jsonify, render_template, session
 
-from crypto import read_password_via_syscall, SecureMemoryPassword, aes_cbc_encrypt, SecureKeyScope, mutable_urandom, TransCrypter
+from crypto import read_password_via_syscall, read_secret_from_fifo, SecureMemoryPassword, aes_cbc_encrypt, SecureKeyScope, mutable_urandom, TransCrypter
 
 # Import the tool package blueprint
 from keymaker_ui import keymaker_bp, KM_SESSION_KEY, TRANSCODER_KEY, BKEND_VAULT_KEY, keymaker_sessions
@@ -118,6 +120,19 @@ def handle_challenge():
         for i in range(len(session_secret)): session_secret[i] = 0
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description="Process visual cognition to binary encoding."
+    )
+
+    # Optional FIFO path argument with NO default value
+    parser.add_argument(
+        "--fifo-path", "-f",
+        type=str,
+        help="Path to the named pipe/FIFO for docker containers to read startup nonce. If omitted, reads from standard input instead."
+    )
+
+    args = parser.parse_args()
+
     # 1. Create the session master key that will keep everything else encrypted.
     master_key = SecureMemoryPassword(mutable_urandom(32))
     # Note! Do not put this under some app.config key,
@@ -126,7 +141,31 @@ if __name__ == '__main__':
 
     # 2. Get the session secret nonce for server validation.
     print("=== Secure Startup Initialization ===")
-    secret_input = read_password_via_syscall("Enter the server verification password: ")
+    secret_input = ""
+    try:
+        # Branching Logic: If a path is provided, read from the FIFO
+        if args.fifo_path is not None:
+            # Pre-flight validation checks for the FIFO path
+            if not os.path.exists(args.fifo_path):
+                print(f"Error: Path '{args.fifo_path}' does not exist.", file=sys.stderr)
+                sys.exit(1)
+
+            fpath = Path(args.fifo_path)
+            if not fpath.is_fifo():
+                print(f"Error: Path '{args.fifo_path}' is not a valid FIFO device.", file=sys.stderr)
+                sys.exit(1)
+
+            secret_input = read_secret_from_fifo(args.fifo_path)
+
+        # Fallback Logic: Default to your custom stdin syscall function
+        else:
+            secret_input = read_password_via_syscall("Enter the server verification password: ")
+
+        # print(f"Successfully read secret ({len(secret)} bytes). Processing data...")
+    except Exception as e:
+        print(f"Runtime error encountered: {e}", file=sys.stderr)
+        sys.exit(1)
+
     if len(secret_input) == 0:
         print("Error: Password cannot be empty. Aborting startup.", file = sys.stderr)
         exit(1)

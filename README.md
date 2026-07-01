@@ -63,8 +63,8 @@ docker run -it --rm -p 5000:5000 --name keymaker keymaker-ui
 
 #### Running in detached mode (mapped nonce file)
 ```bash
-echo "my verification code" > nonce.txt
-docker run -d --rm -p 5000:5000 -v $(pwd)/nonce.txt:/app/nonce.txt --name keymaker keymaker-ui
+docker run -d --rm -p 5000:5000 -v $(pwd)/nonce.txt:/app/nonce.txt --name keymaker keymaker-ui --fifo-path /tmp/keymaker_fifo
+docker exec -it keymaker /app/initnonce.sh
 ```
 
 ---

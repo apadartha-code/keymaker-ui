@@ -29,11 +29,11 @@ COPY . /app
 RUN pip install -e .
 
 # Make the cert script executable and run it to generate self-signed certs
-# Also add a blank nonce file to be mapped from the host side when running
-# in detached mode.
+# Also, create a FIFO to communicate the startup nonce when running detached
+# inside a container.
 RUN chmod +x cert.sh \
     && ./cert.sh \
-    && touch nonce.txt
+    && mkfifo /tmp/keymaker_fifo
 
 # Expose the Flask port
 EXPOSE 5000
