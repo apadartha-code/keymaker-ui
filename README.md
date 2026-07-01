@@ -61,9 +61,12 @@ docker run -it --rm -p 5000:5000 --name keymaker keymaker-ui
 # Ignore the browser warnings for certificate verification and proceed.
 ```
 
-#### Running in detached mode (mapped nonce file)
+#### Running in detached mode (using FIFO)
 ```bash
+# Start the app. It will be blocked on the fifo.
 docker run -d --rm -p 5000:5000 -v $(pwd)/nonce.txt:/app/nonce.txt --name keymaker keymaker-ui --fifo-path /tmp/keymaker_fifo
+
+# Provide the startup nonce to unblock the run.
 docker exec -it keymaker /app/initnonce.sh
 ```
 
